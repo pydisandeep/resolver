@@ -1,0 +1,97 @@
+# import os
+# import faiss
+# from langchain_community.docstore.in_memory import InMemoryDocstore
+# #from langchain.vectorstores import FAISS
+# from langchain_community.vectorstores import FAISS
+# from embed_config.embed_setup import embed
+# from data_ingestion.example_data_read import read_example_file
+# from data_ingestion.sr_data_read import read_sr_file
+# from data_ingestion.incident_data_read import read_incident_file
+
+# embedding_dim = len(embed.embed_query("hello world"))
+
+
+
+# examples_path = "rag_data/final_input_data.xlsx"
+# incident_path = "rag_data/incident_input_data.xlsx"
+# sr_path = "rag_data/sr_input_data.xlsx"
+
+# example_docs = read_example_file(examples_path)
+# sr_docs = read_sr_file(sr_path)
+# incident_docs = read_incident_file(incident_path)
+
+
+# # def get_vectorstore():
+# #     embedding_dim = len(embed.embed_query("hello world"))
+# #     print(embedding_dim)
+# #     index = faiss.IndexFlatL2(embedding_dim)
+# #     chunks=data_chunking()
+# #     vector_store = FAISS(embedding_function=embed,index=index,docstore=InMemoryDocstore(),index_to_docstore_id={},)
+# #     _ = vector_store.add_documents(documents=chunks)
+# #     #retrieved_docs = vector_store.similarity_search(state["question"])
+# #     #vectorstore = FAISS.from_documents(chunks, embed)
+# #     return vector_store
+
+
+# def get_example_vectorstore():
+#     index_example = faiss.IndexFlatL2(embedding_dim)
+#     example_vector_store = FAISS(embedding_function=embed,index=index_example,docstore=InMemoryDocstore(),index_to_docstore_id={},)
+#     _ = example_vector_store.add_documents(documents=example_docs)
+#     #retrieved_docs = vector_store.similarity_search(state["question"])
+#     #vectorstore = FAISS.from_documents(chunks, embed)
+#     return example_vector_store,index_example
+
+
+# def get_sr_vectorstore():
+#     index_sr = faiss.IndexFlatL2(embedding_dim)
+#     sr_vector_store = FAISS(embedding_function=embed,index=index_sr,docstore=InMemoryDocstore(),index_to_docstore_id={},)
+#     _ = sr_vector_store.add_documents(documents=sr_docs)
+#     #retrieved_docs = vector_store.similarity_search(state["question"])
+#     #vectorstore = FAISS.from_documents(chunks, embed)
+#     return sr_vector_store,index_sr
+
+
+
+# def get_incident_vectorstore():
+#     index_incident = faiss.IndexFlatL2(embedding_dim)
+#     incident_vector_store = FAISS(embedding_function=embed,index=index_incident,docstore=InMemoryDocstore(),index_to_docstore_id={},)
+#     _ = incident_vector_store.add_documents(documents=incident_docs)
+#     #retrieved_docs = vector_store.similarity_search(state["question"])
+#     #vectorstore = FAISS.from_documents(chunks, embed)
+#     return incident_vector_store,index_incident
+
+import os
+from langchain_community.vectorstores import FAISS
+from embed_config.embed_setup import embed
+from data_ingestion.example_data_read import read_example_file
+from data_ingestion.sr_data_read import read_sr_file
+from data_ingestion.incident_data_read import read_incident_file
+
+# Paths
+examples_path = "rag_data/final_input_data.xlsx"
+incident_path = "rag_data/incident_input_data.xlsx"
+sr_path = "rag_data/sr_input_data.xlsx"
+
+example_docs = read_example_file(examples_path)
+sr_docs = read_sr_file(sr_path)
+incident_docs = read_incident_file(incident_path)
+
+# Create or load vectorstore
+def get_or_create_vectorstore(store_path: str, docs, label: str):
+    if os.path.exists(store_path):
+        print(f"✅ Loading existing {label} vectorstore...")
+        return FAISS.load_local(store_path, embeddings=embed,allow_dangerous_deserialization=True)
+    else:
+        print(f"💾 Creating and saving {label} vectorstore...")
+        vectorstore = FAISS.from_documents(docs, embed)
+        vectorstore.save_local(store_path)
+        return vectorstore
+
+def get_example_vectorstore():
+    return get_or_create_vectorstore("vectorstores/example_store", example_docs, "example")
+
+def get_sr_vectorstore():
+    return get_or_create_vectorstore("vectorstores/sr_store", sr_docs, "sr")
+
+def get_incident_vectorstore():
+    return get_or_create_vectorstore("vectorstores/incident_store", incident_docs, "incident")
