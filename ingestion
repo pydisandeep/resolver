@@ -1,0 +1,110 @@
+import os
+import pandas as pd
+from datetime import datetime
+from langchain_core.documents import Document
+import ast
+
+
+def clean_date_only(date_val):
+    """Converts datetime to YYYY-MM-DD string."""
+    if pd.isnull(date_val):
+        return None
+    if isinstance(date_val, str):
+        return date_val.split(" ")[0]
+    return pd.to_datetime(date_val).date().isoformat()
+
+def read_example_file(file_path: str) -> list[Document]:
+    df = pd.read_excel(file_path)
+#    print(df.columns)
+    df["keywords"] = df["keywords"].apply(lambda x: ast.literal_eval(x) if isinstance(x, str) else x)
+
+    df.columns = df.columns.str.strip().str.lower()
+
+    df["date_created"] = df["date_created"].apply(clean_date_only)
+
+    docs = []
+    for _, row in df.iterrows():
+        docs.append(Document(
+            page_content=row["clean_text"],
+            metadata={
+                "date_created": row["date_created"],
+                "keywords": row["keywords"] if isinstance(row["keywords"], list) else [],
+                "type": row.get("classification", "incident")
+            }
+        ))
+    return docs
+
+
+
+import os
+import pandas as pd
+from datetime import datetime
+from langchain_core.documents import Document
+import ast
+
+
+# def clean_date_only(date_val):
+#     """Converts datetime to YYYY-MM-DD string."""
+#     if pd.isnull(date_val):
+#         return None
+#     if isinstance(date_val, str):
+#         return date_val.split(" ")[0]
+#     return pd.to_datetime(date_val).date().isoformat()
+
+def read_incident_file(file_path: str) -> list[Document]:
+    df = pd.read_excel(file_path)
+#    print(df.columns)
+    df["keywords"] = df["keywords"].apply(lambda x: ast.literal_eval(x) if isinstance(x, str) else x)
+
+    df.columns = df.columns.str.strip().str.lower()
+
+ #   df["date_created"] = df["date_created"].apply(clean_date_only)
+
+    docs = []
+    for _, row in df.iterrows():
+        docs.append(Document(
+            page_content=row["clean_text"],
+            metadata={
+  #              "date_created": row["date_created"],
+                "keywords": row["keywords"] if isinstance(row["keywords"], list) else [],
+                "type": row.get("classification", "incident")
+            }
+        ))
+    return docs
+
+import os
+import pandas as pd
+from datetime import datetime
+from langchain_core.documents import Document
+import ast
+
+
+# def clean_date_only(date_val):
+#     """Converts datetime to YYYY-MM-DD string."""
+#     if pd.isnull(date_val):
+#         return None
+#     if isinstance(date_val, str):
+#         return date_val.split(" ")[0]
+#     return pd.to_datetime(date_val).date().isoformat()
+
+def read_sr_file(file_path: str) -> list[Document]:
+    df = pd.read_excel(file_path)
+#    print(df.columns)
+    df["keywords"] = df["keywords"].apply(lambda x: ast.literal_eval(x) if isinstance(x, str) else x)
+
+    df.columns = df.columns.str.strip().str.lower()
+
+ #   df["date_created"] = df["date_created"].apply(clean_date_only)
+
+    docs = []
+    for _, row in df.iterrows():
+        docs.append(Document(
+            page_content=row["clean_text"],
+            metadata={
+ #               "date_created": row["date_created"],
+                "keywords": row["keywords"] if isinstance(row["keywords"], list) else [],
+                "type": row.get("classification", "incident")
+            }
+        ))
+    return docs
+
