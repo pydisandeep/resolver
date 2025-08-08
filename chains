@@ -1,0 +1,87 @@
+
+from langchain_core.prompts import PromptTemplate
+from llm_config.llm_setup import openai_llm_o1,openai_llm_turbo
+from prompts.prompt_library import PROMPT_LIBRARY
+from langchain_core.output_parsers import StrOutputParser
+
+#from backend.schemas.input_classifier import ClassificationResult
+#from schemas.new_query import ReformulatedQueryOutput
+
+
+answer_prompt=PROMPT_LIBRARY["answer_prompt"]
+answer_prompt_template=PromptTemplate(input_variables=['query','primary_docs','example_docs'],template=answer_prompt)
+answer_chain= answer_prompt_template | openai_llm_o1 | StrOutputParser()
+
+  
+from langchain_core.prompts import PromptTemplate
+
+
+from llm_config.llm_setup import openai_llm_o1,openai_llm_turbo
+from prompts.prompt_library import PROMPT_LIBRARY
+
+#from backend.schemas.input_classifier import ClassificationResult
+from schemas.grade_output import GradeOutput
+
+
+grader_prompt=PROMPT_LIBRARY["grader_prompt"]
+grader_prompt_template=PromptTemplate(input_variables=['query','docs'],template=grader_prompt)
+grader_chain= grader_prompt_template | openai_llm_o1.with_structured_output(GradeOutput)
+
+  
+from langchain_core.prompts import PromptTemplate
+
+
+from llm_config.llm_setup import openai_llm_o1,openai_llm_turbo
+from prompts.prompt_library import PROMPT_LIBRARY
+
+#from backend.schemas.input_classifier import ClassificationResult
+from schemas.input_classifier import ClassificationResult
+
+intent_classification_prompt=PROMPT_LIBRARY["input_classifier_prompt"]
+intent_classification_prompt_template=PromptTemplate(input_variables=['user_input'],template=intent_classification_prompt)
+intent_classification_chain= intent_classification_prompt_template | openai_llm_o1.with_structured_output(ClassificationResult)
+
+from langchain_core.prompts import PromptTemplate
+
+
+from llm_config.llm_setup import openai_llm_o1,openai_llm_turbo
+from prompts.prompt_library import PROMPT_LIBRARY
+
+#from backend.schemas.input_classifier import ClassificationResult
+from schemas.input_type import ServiceClassificationOutput
+
+
+
+ticket_class_prompt=PROMPT_LIBRARY["ticket_classifier_prompt"]
+ticket_class_prompt_template=PromptTemplate(input_variables=['input_text'],template=ticket_class_prompt)
+ticket_class_prompt_chain= ticket_class_prompt_template | openai_llm_o1.with_structured_output(ServiceClassificationOutput)
+
+from langchain_core.prompts import PromptTemplate
+
+
+from llm_config.llm_setup import openai_llm_o1,openai_llm_turbo
+from prompts.prompt_library import PROMPT_LIBRARY
+
+#from backend.schemas.input_classifier import ClassificationResult
+from schemas.keyword_extractor import KeywordExtractionOutput
+
+
+
+
+
+
+keyword_extractor_prompt=PROMPT_LIBRARY["keyword_extract_prompt"]
+keyword_extractor_prompt_template=PromptTemplate(input_variables=['input_text'],template=keyword_extractor_prompt)
+keyword_extractor_chain= keyword_extractor_prompt_template | openai_llm_o1.with_structured_output(KeywordExtractionOutput)
+
+from langchain_core.prompts import PromptTemplate
+from llm_config.llm_setup import openai_llm_o1,openai_llm_turbo
+from prompts.prompt_library import PROMPT_LIBRARY
+
+#from backend.schemas.input_classifier import ClassificationResult
+from schemas.new_query import ReformulatedQueryOutput
+
+
+reformulate_prompt=PROMPT_LIBRARY["reformulate_query"]
+reformulate_prompt_template=PromptTemplate(input_variables=['query','docs'],template=reformulate_prompt)
+reformulate_query_chain= reformulate_prompt_template | openai_llm_o1.with_structured_output(ReformulatedQueryOutput)
