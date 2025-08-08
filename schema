@@ -1,0 +1,64 @@
+from typing import Literal, TypedDict
+
+class GradeOutput(TypedDict):
+    grade: Literal["Relevant", "Not Relevant"]
+
+from typing import Literal, TypedDict
+
+class ClassificationResult(TypedDict):
+    input_type: Literal["simple", "rag"]
+
+    from pydantic import BaseModel
+from typing import Literal
+
+class ServiceClassificationOutput(BaseModel):
+    classification: Literal["service_request", "incident"]
+#    confidence: float  # Optional, if you want a confidence score
+#    reason: str        # Optional, model explains its reasoning
+
+from pydantic import BaseModel
+from typing import List
+
+class KeywordExtractionOutput(BaseModel):
+    keywords: List[str]
+from pydantic import BaseModel
+
+class ReformulatedQueryOutput(BaseModel):
+    new_query: str
+
+
+from pydantic import BaseModel, Field
+from typing import List
+
+class Plan(BaseModel):
+    """Plan to follow in future"""
+
+    steps: List[str] = Field(
+        description="different steps to follow, should be in sorted order"
+    )
+# # schemas/rag_state.py
+
+from typing import Literal, TypedDict, List, Optional
+from langchain_core.documents import Document
+
+# class RAGState(TypedDict, total=False):
+#     query: str
+#     retries: int
+#     max_retries: int
+#     input_type: Literal["simple", "rag"]
+#     top_docs: List[Document]
+#     grade: Literal["Relevant", "Not Relevant"]
+#     final_answer: Optional[str]
+
+class RAGState(TypedDict, total=False):
+    query: str
+    new_query: Optional[str]
+    input_type: Literal["simple", "rag"]
+    query_type: Literal["incident", "service_request"]
+    keywords: List[str]
+    retries: int
+    max_retries: int
+    top_docs: List[Document]
+    top_example_docs: List[Document]
+    grade: Literal["Relevant", "Not Relevant"]
+    final_answer: Optional[str]
