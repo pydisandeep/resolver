@@ -1,0 +1,292 @@
+from schemas.rag_state import RAGState
+
+from chains.answer_chain import answer_chain
+
+# def answer_rag_node(state: RAGState) -> RAGState:
+#     query = state["query"]
+#     docs = state["top_docs"]
+
+#     # docs_text = [
+#     #     f"[Doc {i+1}]\n{doc.page_content[:500]}" for i, doc in enumerate(docs[:3])
+#     # ]
+#     # formatted_prompt = rag_prompt.format(query=query, docs=docs_text)
+#     answer = answer_docs_chain.invoke({"query":query,"docs":docs})
+
+#     #answer = openai_llm_o1.invoke(formatted_prompt).content.strip()
+#     return {**state,"final_answer": answer}
+
+def answer_rag_node(state: RAGState) -> RAGState:
+    primary_docs = state.get("top_docs", [])
+    example_docs = state.get("top_example_docs", [])
+    query = state["query"]
+
+    primary_text = "\n\n".join(doc.page_content for doc in primary_docs)
+    example_text = "\n\n".join(doc.page_content for doc in example_docs)
+
+    answer = answer_chain.invoke({
+        "query": query,
+        "primary_docs": primary_text,
+        "example_docs": example_text
+    })
+
+    return {
+        **state,
+        "final_answer": answer
+    }
+
+
+
+from schemas.rag_state import RAGState
+from chains.intent_type import ticket_class_prompt_chain
+
+
+def classify_ticket_type_node(state: RAGState) -> RAGState:
+    output = ticket_class_prompt_chain.invoke({"input_text": state["query"]})
+    print('type ',output)
+    return {**state, "query_type": output.classification}
+from schemas.rag_state import RAGState
+from chains.intent_class import intent_classification_chain
+
+
+def classifier_node(state: RAGState) -> RAGState:
+    user_input = state["query"]
+    result = intent_classification_chain.invoke({"user_input": user_input})
+    print('rag or simple ',result)
+    return {**state, "input_type":result["input_type"]}
+# nodes/get_docs_node.py
+
+#from schemas.rag_state import RAGState
+#from vectorstores.create_vector_store import get_vectorstore
+
+# def get_docs_node(state: RAGState) -> RAGState:
+#     query = state["query"]
+#     vectorstore = get_vectorstore()
+#     #docs = vectorstore.get_relevant_documents(query)
+#     docs=vectorstore.similarity_search(query,k=5)
+#     print("generated docs",docs)
+#     return {**state,"top_docs": docs}
+
+from typing import List
+from langchain_core.documents import Document
+from langchain_community.vectorstores import FAISS
+from schemas.rag_state import RAGState
+from embed_config.embed_setup import embed
+from typing import List
+from langchain_core.documents import Document
+from schemas.rag_state import RAGState
+from vectorstores.create_vector_store import (
+    get_incident_vectorstore,
+    get_sr_vectorstore,
+    get_example_vectorstore
+)
+
+PRIMARY_TOP_K = 10
+EXAMPLES_TOP_K = 30
+
+def filter_docs_by_keywords(docs: List[Document], query_keywords: List[str]) -> List[Document]:
+    def keyword_match(doc_keywords):
+        doc_keywords = [k.lower() for k in doc_keywords or []]
+        return any(qk.lower() in doc_keywords for qk in query_keywords)
+
+    seen_doc_ids = set()
+    results = []
+    for doc in docs:
+        if keyword_match(doc.metadata.get("keywords", [])):
+            doc_id = id(doc)
+            if doc_id not in seen_doc_ids:
+                seen_doc_ids.add(doc_id)
+                results.append(doc)
+    return results
+
+def get_docs_node(state: RAGState) -> RAGState:
+    query_type = state["query_type"]  # "incident" or "service_request"
+    keywords = state["keywords"]
+
+    print('keywords\n\n',keywords)
+    # Load vectorstores
+    example_store = get_example_vectorstore()
+    sr_store = get_sr_vectorstore()
+    incident_store = get_incident_vectorstore()
+
+    # Retrieve all docs from each store
+    example_docs = list(example_store.docstore._dict.values())
+    sr_docs = list(sr_store.docstore._dict.values())
+    incident_docs = list(incident_store.docstore._dict.values())
+    # print('example docs ',example_docs[:3])
+    # print('sr dcos',sr_docs[:3])
+    # print('incident docs ',incident_docs[:3])
+
+    # Filter primary based on query type
+    if query_type == "service_request":
+        primary_docs = filter_docs_by_keywords(sr_docs, keywords)
+    else:
+        primary_docs = filter_docs_by_keywords(incident_docs, keywords)
+
+    # 🔍 Filter example docs by type first
+    relevant_example_docs = [
+        doc for doc in example_docs
+        if doc.metadata.get("type", "").lower() == query_type
+    ]
+    #print('before sorting and applying similarity\n\n\n',relevant_example_docs[:3])
+    # Then apply keyword filter
+    filtered_examples = filter_docs_by_keywords(relevant_example_docs, keywords)
+
+    print('before sorting and applying similarity\n\n\n',filtered_examples[:3])
+
+    # Sort by date_created descending
+    secondary_examples_docs = sorted(
+        filtered_examples,
+        key=lambda d: d.metadata.get("date_created", "1900-01-01"),
+        reverse=True
+    )
+
+    print('after sorting docs \n\n\n',secondary_examples_docs[:3])
+    
+    if len(secondary_examples_docs) > 0:
+        temp_faiss_store = FAISS.from_documents(secondary_examples_docs, embed)
+        secondary_examples = temp_faiss_store.similarity_search(state["query"], k=EXAMPLES_TOP_K)
+    else:
+        secondary_examples = []
+ 
+    print('final seconday after similarity \n\n\n',secondary_examples)
+
+    if len(primary_docs) > 0:
+        temp_faiss_store = FAISS.from_documents(primary_docs, embed)
+        primary_examples = temp_faiss_store.similarity_search(state["query"], k=PRIMARY_TOP_K)
+    else:
+        primary_examples = []
+
+    print('final primary after similarity\n\n\n',primary_examples)
+
+    return {
+        **state,
+        "top_docs": primary_examples,
+        "top_example_docs": secondary_examples # Optional: top 3 only
+    }
+
+
+from schemas.rag_state import RAGState
+from llm_config.llm_setup import openai_llm_o1,openai_llm_turbo
+from chains.grader_chain import grader_chain
+from langchain_core.documents import Document
+from typing import List
+
+# def grade_docs_node(state: RAGState) -> RAGState:
+#     query = state["query"]
+#     docs = state["top_docs"]
+
+#     # docs_text = [
+#     #     f"[Doc {i+1}]\n{doc.page_content[:500]}" for i, doc in enumerate(docs[:3])
+#     # ]
+#     # formatted_prompt = grade_prompt.format(query=query, docs=docs_text)
+
+#     response = grade_docs_chain.invoke({"query":query,"docs":docs})
+#     print(response)
+                                    
+#     # try:
+#     #     parsed: GradeOutput = json.loads(response)
+#     #     grade = parsed.get("grade", "Not Relevant")
+        
+#     # except Exception:
+#     #     grade = "Not Relevant"
+
+#     return {**state,"grade": response["grade"]}
+
+def grade_docs_node(state: RAGState) -> RAGState:
+
+    query = state["query"]
+    docs: List[Document] = state["top_docs"]+state["top_example_docs"]
+
+    # Format docs as string (you can improve formatting here)
+    doc_contents = "\n\n".join([doc.page_content for doc in docs])
+
+    output = grader_chain.invoke({
+        "query": query,
+        "docs": doc_contents
+    })
+    print('grade',output)
+    return {
+        **state,
+        "grade": output['grade']
+    }
+# import sys
+# import os
+
+# # # Add the project root to Python's path
+# #sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")))
+# sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+
+
+# from backend.schemas.input_classifier import ClassificationResult
+# from schemas.keyword_extractor import KeywordExtractionOutput
+# from prompts.prompt_library import PROMPT_LIBRARY
+# from llm_config.llm_setup import openai_llm_turbo,openai_llm_o1
+# from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder,PromptTemplate
+# import pandas as pd
+
+# keyword_extractor_prompt=PROMPT_LIBRARY["keyword_extract_prompt"]
+# keyword_extractor_prompt_template=PromptTemplate(input_variables=['input_text'],template=keyword_extractor_prompt)
+# keyword_extractor_chain= keyword_extractor_prompt_template | openai_llm_o1.with_structured_output(KeywordExtractionOutput)
+
+
+# # Path relative to this script
+# excel_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "rag_data", "sr_data.xlsx"))
+
+# data = pd.read_excel(excel_path)
+
+# print(data)
+
+from schemas.rag_state import RAGState
+from chains.keyword_generator import keyword_extractor_chain
+
+
+def extract_keywords_node(state: RAGState) -> RAGState:
+    output = keyword_extractor_chain.invoke({"input_text": state["query"]})
+    print('key words', output)
+    return {**state, "keywords": output.keywords}
+from schemas.rag_state import RAGState
+from chains.reformualte_query import reformulate_query_chain
+
+# def reformulate_query_node(state: RAGState) -> RAGState:
+#     query = state["query"]
+#     docs = state["top_docs"]
+
+#     # docs_text = [
+#     #     f"[Doc {i+1}]\n{doc.page_content[:500]}" for i, doc in enumerate(docs[:3])
+#     # ]
+#     # prompt = reform_prompt.format(query=query, docs=docs_text)
+#     # new_query = openai_llm_o1.invoke(prompt).content.strip()
+#     new_query = reformulate_query_chain.invoke({"query":query,"docs":docs})
+#     return {**state,
+#         "query": new_query,
+#         "retries": state["retries"] + 1
+#     }
+
+
+def reformulate_query_node(state: RAGState) -> RAGState:
+    query = state["query"]
+    docs = state["top_docs"]+state['top_example_docs']
+
+    doc_text = "\n\n".join([doc.page_content for doc in docs])
+
+    output = reformulate_query_chain.invoke({
+        "query": query,
+        "docs": doc_text
+    })
+
+    print('new query ',output)
+
+    return {
+        **state,
+        "query": output.new_query.strip(),     # replaces old query
+        "new_query": output.new_query.strip(), # saves in state
+        "retries": state["retries"] + 1
+    }
+from llm_config.llm_setup import openai_llm_turbo
+from schemas.rag_state import RAGState
+
+def answer_simple_node(state: RAGState) -> RAGState:
+    query = state["query"]
+    response = openai_llm_turbo.invoke(query).content.strip()
+    return {**state,"final_answer": response}
+
