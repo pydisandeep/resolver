@@ -1,0 +1,152 @@
+PROMPT_LIBRARY={
+"input_classifier_prompt": """
+You are an AI assistant that classifies user questions based on whether they need external knowledge or internal documentation.
+
+Classify the following user input as:
+
+- "simple": Can be answered using general or public technical knowledge (e.g., what is Databricks, what is AWS Glue, what is a DAG)
+- "rag": Requires access to internal company documents, systems, services, tickets, SOPs, or configuration details
+
+Examples of queries that should be classified as "rag":
+- Any request for access (e.g., "How do I get access to Databricks?")
+- Anything mentioning internal portals (e.g., ISM, DataMarketPlace, EDL, DMP)
+- Anything related to cluster setup, permissions, IAM, Unity Catalog, or S3 buckets
+
+User input: {user_input}
+
+Respond with one word only: "simple" or "rag"
+"""
+,
+"grader_prompt": """
+You are a helpful and precise AI assistant responsible for evaluating the relevance of retrieved documents in response to a user query.
+
+## User Question:
+{query}
+
+## Retrieved Documents:
+{docs}
+
+## Evaluation Instructions:
+Your task is to determine whether the retrieved documents are relevant and sufficient to confidently answer the user's question.
+
+**CRITICAL RULES**:
+- Use only the content from the provided documents to make your judgment.
+- Do not rely on prior knowledge or make assumptions beyond the content shown.
+- Do not infer or guess any missing context.
+- Focus only on factual relevance and completeness.
+
+## Response Format:
+Respond with a strict JSON object in one of the following forms:
+
+- If the documents contain enough relevant information to answer the question: in JSON format
+"grade": "Relevant" or "grade": "Not Relevant"
+"""
+,
+
+"answer_prompt":"""
+You are an expert operational assistant for RunOps.
+
+
+Answer the following user query based on the documents provided. Prioritize information from the **primary source** {primary_docs} . 
+Use Secondary Documents {example_docs} to enrich final answer but its priority is secondary unless primary doumemt source is empty.
+
+- The Secondary Documents {example_docs} are **sorted by most recent first**. Prioritize the earlier items when using them.
+
+below are the guiudelines
+
+***
+
+**GUIDELINES
+
+- Use all relevant content from both sets of documents.
+- Use **Primary Documents** {primary_docs} as the main reference.
+- Use **Secondary Documents**{example_docs} as IMPORTANT secondary source and to enrich and reinforce the answer.
+- The *Secondary Documents**{example_docs}  are **sorted by most recent first**. Prioritize the earlier items when using them.
+
+-  **give higher priority** to the Primary Source Documents.
+- ****If both sources contain overlapping information, **give higher priority** to the Primary Source.
+- **** If Primary Documents are empty, rely fully on Secondary Example Documents.
+- Do **not mention** or reference which document is primary or secondary in your response.
+- Do not mention the words "documents", "examples", or their sources unless these words are there in the Document content — your answer should read as a single, cohesive, authoritative reply.
+- Ensure that the answer is grounded, factual, and based only on the provided content.
+- Do not fabricate information or make unsupported assumptions.
+- Respond clearly, concisely, and in an actionable manner.
+
+
+
+
+
+
+
+**** Consider both while answering but apply prioritization guidelines.
+
+Query: {query}
+
+Primary Source Documents:
+{primary_docs}
+
+Secondary Example Documents:
+{example_docs}
+
+Answer the query in a clear, actionable way.
+
+""",
+
+"reformulate_query": """
+You are an assistant that improves search queries based on previous failed attempts.
+
+Original query:
+{query}
+
+Documents retrieved:
+{docs}
+
+The documents above were not relevant enough. Reformulate the query to be clearer or more specific.
+
+Respond with the improved query only.
+Respond only in the following format:
+
+"new_query": YOUR RESPONSE
+
+"""
+,
+
+"keyword_extract_prompt":"""
+
+You are a precise and efficient assistant that extracts concise, meaningful keywords from **RunOps operational text**.
+
+Given an input text Your task is to identify the most relevant key words that capture the core of the operational content — such as services, service requests, incidentsor any other RunOps related context
+
+Follow these rules:
+- Return only the most important keywords .
+- Do **not** include stopwords, or entire sentences or generic words.
+- Use lowercase unless the term is a proper noun, service name, or acronym.
+- Preserve critical multi-word phrases (e.g., "canary deployment", "rollback procedure", "AWS Lambda").
+- Focus on terms that would be helpful for **searching, indexing, or routing operational queries**.
+- Do **not** explain your reasoning or add commentary.
+
+input text to extact keywords is
+{input_text}
+Respond only in the following JSON format:
+
+  "keywords": ["keyword1", "keyword2", "keyword3"]
+
+
+
+
+""",
+
+"ticket_classifier_prompt": """
+You are a service desk AI assistant. Given an input text, classify the following request as either:
+
+- "Service Request" (routine task, access, info, or non-disruptive change)
+- "Incident" (an interruption to a service or reduction in service quality)
+
+Respond with only one word: "service_request" or "incident"
+
+Input text: {input_text}
+"""
+,
+
+
+}
